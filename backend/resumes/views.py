@@ -27,9 +27,9 @@ class ResumeUploadView(APIView):
             return Response({'success': False, 'message': f'File too large. Max {settings.MAX_RESUME_SIZE_MB}MB'},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        allowed = ['.pdf', '.docx']
+        allowed = ['.pdf', '.docx', '.doc', '.txt']
         if not any(file.name.lower().endswith(ext) for ext in allowed):
-            return Response({'success': False, 'message': 'Only PDF and DOCX allowed'},
+            return Response({'success': False, 'message': 'Only PDF, DOCX, and TXT allowed'},
                             status=status.HTTP_400_BAD_REQUEST)
 
         resume = Resume.objects.create(

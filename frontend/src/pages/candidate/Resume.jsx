@@ -109,7 +109,7 @@ export default function Resume() {
         className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${
           dragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
         } ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}>
-        <input ref={fileRef} type="file" accept=".pdf,.docx" className="hidden"
+        <input ref={fileRef} type="file" accept=".pdf,.docx,.doc,.txt" className="hidden"
           onChange={e => handleUpload(e.target.files[0])} />
         {uploading ? (
           <div>
@@ -120,7 +120,7 @@ export default function Resume() {
           <div>
             <Upload className="h-10 w-10 text-gray-400 mx-auto mb-3" />
             <p className="font-medium text-gray-700">Drop your resume here or click to upload</p>
-            <p className="text-sm text-gray-400 mt-1">PDF or DOCX • Max 5MB</p>
+            <p className="text-sm text-gray-400 mt-1">PDF, DOCX, DOC or TXT • Max 5MB</p>
           </div>
         )}
       </div>
@@ -206,19 +206,54 @@ export default function Resume() {
               {/* Parsed data */}
               {selected.parsing_status === 'COMPLETED' && (
                 <div className="card">
-                  <h3 className="font-semibold text-gray-900 mb-4">Parsed Information</h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-gray-900">Parsed Information</h3>
+                    {(selected.extracted_name || selected.extracted_phone) && (
+                      <span className="text-[11px] font-bold bg-green-50 text-green-700 px-2.5 py-0.5 rounded-full border border-green-200">
+                        Details Detected
+                      </span>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div><span className="text-gray-400">Name:</span> <span className="font-medium ml-2">{selected.extracted_name || '—'}</span></div>
+                    <div><span className="text-gray-400">Name:</span> <span className="font-bold text-gray-900 ml-2">{selected.extracted_name || '—'}</span></div>
+                    <div><span className="text-gray-400">Phone:</span> <span className="font-bold text-gray-900 ml-2">{selected.extracted_phone || '—'}</span></div>
                     <div><span className="text-gray-400">Email:</span> <span className="font-medium ml-2">{selected.extracted_email || '—'}</span></div>
-                    <div><span className="text-gray-400">Phone:</span> <span className="font-medium ml-2">{selected.extracted_phone || '—'}</span></div>
                     <div><span className="text-gray-400">Skills found:</span> <span className="font-medium ml-2">{selected.extracted_skills?.length || 0}</span></div>
                   </div>
+
                   {selected.extracted_skills?.length > 0 && (
                     <div className="mt-4">
                       <p className="text-xs text-gray-400 mb-2">Extracted Skills</p>
                       <div className="flex flex-wrap gap-1.5">
                         {selected.extracted_skills.map(s => (
                           <span key={s} className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-full">{s}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selected.extracted_education?.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-xs text-gray-400 mb-2">Education Qualifications</p>
+                      <div className="space-y-1">
+                        {selected.extracted_education.map((e, idx) => (
+                          <div key={idx} className="text-xs text-gray-700 bg-gray-50 p-2 rounded-lg border border-gray-100 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                            <span>{e}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selected.extracted_experience?.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-xs text-gray-400 mb-2">Experience & Career Level</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selected.extracted_experience.map((exp, idx) => (
+                          <span key={idx} className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs px-2.5 py-0.5 rounded-full font-medium">
+                            {exp}
+                          </span>
                         ))}
                       </div>
                     </div>
