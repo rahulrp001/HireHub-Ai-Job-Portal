@@ -115,8 +115,28 @@ class UpdateApplicationStatusView(APIView):
 
     def patch(self, request, pk):
         application = get_object_or_404(JobApplication, pk=pk, job__recruiter=request.user)
+        old_status = application.status
         serializer = ApplicationStatusSerializer(application, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response({'success': True, 'message': 'Status updated',
-                         'application': JobApplicationSerializer(application).data})
+        should_send_email = serializer.validated_data.pop('send_email', True)
+        application = serializer.save()
+
+        # Email & in-app notification integration
+        email_result = None
+        new_status = application.status
+
+        if should_send_email and new_status in ['SHORTLISTED', 'INTERVIEW', 'SELECTED', 'REJECTED']:
+            from .email_service import send_candidate_status_email
+            custom_msg = request.data.get('email_message', '')
+            email_result = send_candidate_status_email(application, custom_message=custom_msg)
+
+        msg = f"Status updated to {new_status}"
+        if email_result and email_result.get('email_sent'):
+            msg += f" and confirmation email dispatched to {application.candidate.email}"
+
+        return Response({
+            'success': True,
+            'message': msg,
+            'email_result': email_result,
+            'application': JobApplicationSerializer(application).data
+        })

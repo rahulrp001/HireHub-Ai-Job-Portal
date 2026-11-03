@@ -161,9 +161,25 @@ class DashboardStatsView(APIView):
                 'total_applications': apps.count(),
                 'shortlisted': status_counts.get('SHORTLISTED', 0),
                 'interviews': status_counts.get('INTERVIEW', 0),
+                'selected': status_counts.get('SELECTED', 0),
                 'high_match_count': high_match,
                 'status_counts': status_counts,
                 'chart_data': chart_data,
             })
 
         return Response({'success': False, 'message': 'Unknown role'}, status=400)
+
+
+class UserSearchView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Q
+        from .models import User
+        q = request.query_params.get('q', '').strip()
+        if not q:
+            return Response({'users': []})
+        users = User.objects.filter(is_active=True).exclude(id=request.user.id).filter(
+            Q(first_name__icontains=q) | Q(last_name__icontains=q) | Q(email__icontains=q)
+        )[:10]
+        return Response({'users': UserSerializer(users, many=True).data})

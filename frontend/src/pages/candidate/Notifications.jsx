@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { notificationService } from '../../services'
-import { Bell, CheckCheck, Briefcase, MessageSquare, Star, Info } from 'lucide-react'
+import { Bell, CheckCheck, Briefcase, MessageSquare, Star, Info, Calendar, Sparkles } from 'lucide-react'
 
 const TYPE_ICONS = {
   APPLICATION: Briefcase,
@@ -16,6 +16,23 @@ const TYPE_COLORS = {
   MESSAGE: 'bg-green-100 text-green-600',
   JOB_RECOMMENDATION: 'bg-yellow-100 text-yellow-600',
   GENERAL: 'bg-gray-100 text-gray-600',
+}
+
+const getNotificationStyle = (notif) => {
+  const title = notif.title || ''
+  if (title.includes('Offer') || title.includes('Selected')) {
+    return { Icon: Sparkles, colorClass: 'bg-emerald-100 text-emerald-600' }
+  }
+  if (title.includes('Interview')) {
+    return { Icon: Calendar, colorClass: 'bg-blue-100 text-blue-600' }
+  }
+  if (title.includes('Shortlist')) {
+    return { Icon: Star, colorClass: 'bg-purple-100 text-purple-600' }
+  }
+  return { 
+    Icon: TYPE_ICONS[notif.notification_type] || Info, 
+    colorClass: TYPE_COLORS[notif.notification_type] || TYPE_COLORS.GENERAL 
+  }
 }
 
 export default function Notifications() {
@@ -76,8 +93,7 @@ export default function Notifications() {
       ) : (
         <div className="space-y-2">
           {notifications.map(notif => {
-            const Icon = TYPE_ICONS[notif.notification_type] || Info
-            const colorClass = TYPE_COLORS[notif.notification_type] || TYPE_COLORS.GENERAL
+            const { Icon, colorClass } = getNotificationStyle(notif)
             return (
               <div key={notif.id} onClick={() => !notif.is_read && markRead(notif.id)}
                 className={`card p-4 flex items-start gap-4 cursor-pointer transition-all hover:shadow-md ${!notif.is_read ? 'border-l-4 border-l-blue-500 bg-blue-50/30' : ''}`}>

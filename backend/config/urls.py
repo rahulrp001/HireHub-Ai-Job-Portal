@@ -4,9 +4,14 @@ from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+admin.site.site_header = 'HireHub Admin'
+admin.site.site_title = 'HireHub Admin Portal'
+admin.site.index_title = 'Welcome to HireHub Super Admin Panel'
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('users.urls')),
+    path('api/admin/', include('users.admin_urls')),
     path('api/candidates/', include('candidates.urls')),
     path('api/recruiters/', include('recruiters.urls')),
     path('api/companies/', include('companies.urls')),

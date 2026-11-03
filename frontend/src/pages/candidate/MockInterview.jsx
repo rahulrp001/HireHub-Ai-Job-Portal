@@ -1,20 +1,23 @@
 import { useState, useEffect, useRef } from 'react'
 import { jobService, aiService } from '../../services'
-import { Mic, MicOff, Play, RotateCcw, CheckCircle, Clock, ChevronRight, Search, Brain, Star } from 'lucide-react'
+import { Mic, MicOff, Play, RotateCcw, CheckCircle, Clock, ChevronRight, Search, Brain, Star, AlertCircle } from 'lucide-react'
 
 const DIFFICULTY = ['Easy', 'Medium', 'Hard']
 
-function Timer({ running, onEnd, duration }) {
+function Timer({ running, onEnd, duration, resetKey }) {
   const [left, setLeft] = useState(duration)
+
   useEffect(() => {
     setLeft(duration)
-  }, [duration])
+  }, [resetKey, duration])
+
   useEffect(() => {
     if (!running) return
     if (left <= 0) { onEnd(); return }
     const t = setTimeout(() => setLeft(l => l - 1), 1000)
     return () => clearTimeout(t)
   }, [running, left])
+
   const pct = (left / duration) * 100
   const color = left < 30 ? 'text-red-500' : left < 60 ? 'text-yellow-500' : 'text-green-600'
   return (
@@ -42,11 +45,13 @@ export default function MockInterview() {
   const [answers, setAnswers] = useState([])
   const [timerRunning, setTimerRunning] = useState(false)
   const [timeUp, setTimeUp] = useState(false)
-  const [phase, setPhase] = useState('setup') // setup | interview | result
+  const [phase, setPhase] = useState('setup')
   const [loading, setLoading] = useState(false)
   const [jobsLoading, setJobsLoading] = useState(true)
   const [listening, setListening] = useState(false)
+  const [error, setError] = useState('')
   const recognitionRef = useRef(null)
+  const timerResetKey = useRef(0)
 
   const DURATION = difficulty === 'Easy' ? 180 : difficulty === 'Medium' ? 120 : 90
 
@@ -64,35 +69,44 @@ export default function MockInterview() {
     const r = new SR()
     r.continuous = true
     r.interimResults = true
+    r.lang = 'en-US'
     r.onresult = (e) => {
       const transcript = Array.from(e.results).map(r => r[0].transcript).join('')
       setAnswer(transcript)
     }
     r.onend = () => setListening(false)
+    r.onerror = () => setListening(false)
     recognitionRef.current = r
   }, [])
 
   const startInterview = async () => {
     if (!selectedJob) return
     setLoading(true)
+    setError('')
     try {
       const { data } = await aiService.getInterviewPrep(selectedJob.id)
+      const q = data.questions || {}
       const all = [
-        ...(data.questions?.technical || []),
-        ...(data.questions?.practical || []),
-        ...(data.questions?.hr || []),
+        ...(q.technical || []),
+        ...(q.practical || []),
+        ...(q.hr || []),
       ]
-      // pick 5 questions based on difficulty
+      if (all.length === 0) {
+        setError('No questions found for this job. Try a job with required skills.')
+        setLoading(false)
+        return
+      }
       const count = difficulty === 'Easy' ? 3 : difficulty === 'Medium' ? 5 : 7
       setQuestions(all.slice(0, Math.min(count, all.length)))
       setAnswers([])
       setCurrent(0)
       setAnswer('')
+      setTimeUp(false)
+      timerResetKey.current = 0
       setPhase('interview')
       setTimerRunning(true)
-      setTimeUp(false)
-    } catch {
-      alert('Could not load questions. Make sure backend is running.')
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not load questions. Make sure backend is running.')
     }
     setLoading(false)
   }
@@ -113,6 +127,7 @@ export default function MockInterview() {
       setPhase('result')
       setTimerRunning(false)
     } else {
+      timerResetKey.current += 1
       setCurrent(c => c + 1)
       setTimerRunning(true)
     }
@@ -124,8 +139,10 @@ export default function MockInterview() {
       recognitionRef.current.stop()
       setListening(false)
     } else {
-      recognitionRef.current.start()
-      setListening(true)
+      try {
+        recognitionRef.current.start()
+        setListening(true)
+      } catch {}
     }
   }
 
@@ -143,19 +160,17 @@ export default function MockInterview() {
     setCurrent(0)
     setAnswer('')
     setTimerRunning(false)
+    setTimeUp(false)
+    setError('')
     stopListening()
   }
-
-  const score = answers.length > 0
-    ? Math.round((answers.filter(a => a.answer.trim().length > 30).length / answers.length) * 100)
-    : 0
 
   const filteredJobs = jobs.filter(j =>
     j.title.toLowerCase().includes(search.toLowerCase()) ||
     (j.company_detail?.name || '').toLowerCase().includes(search.toLowerCase())
   )
 
-  // SETUP PHASE
+  // ── SETUP PHASE ──
   if (phase === 'setup') {
     return (
       <div className="space-y-6">
@@ -168,6 +183,12 @@ export default function MockInterview() {
             <p className="text-gray-500 text-sm">Practice real interview with timer & voice input</p>
           </div>
         </div>
+
+        {error && (
+          <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-xl">
+            <AlertCircle className="h-4 w-4 shrink-0" /> {error}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Job selector */}
@@ -185,11 +206,16 @@ export default function MockInterview() {
                 <div className="p-4 space-y-3">
                   {[...Array(5)].map((_, i) => <div key={i} className="h-14 bg-gray-100 rounded-lg animate-pulse" />)}
                 </div>
+              ) : filteredJobs.length === 0 ? (
+                <p className="text-center text-gray-400 text-sm p-6">No jobs found</p>
               ) : filteredJobs.map(job => (
-                <button key={job.id} onClick={() => setSelectedJob(job)}
+                <button key={job.id} onClick={() => { setSelectedJob(job); setError('') }}
                   className={`w-full text-left p-4 border-b border-gray-50 hover:bg-indigo-50 transition-colors ${selectedJob?.id === job.id ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : ''}`}>
                   <p className="font-medium text-gray-900 text-sm">{job.title}</p>
                   <p className="text-xs text-gray-500">{job.company_detail?.name || 'Company'}</p>
+                  {job.required_skills?.length > 0 && (
+                    <p className="text-xs text-indigo-500 mt-0.5">{job.required_skills.slice(0, 3).join(', ')}</p>
+                  )}
                 </button>
               ))}
             </div>
@@ -220,8 +246,11 @@ export default function MockInterview() {
 
             {selectedJob && (
               <div className="card bg-indigo-50 border border-indigo-200">
-                <p className="text-sm font-semibold text-indigo-800">Selected: {selectedJob.title}</p>
-                <p className="text-xs text-indigo-600 mt-0.5">{selectedJob.company_detail?.name}</p>
+                <p className="text-sm font-semibold text-indigo-800">✅ Selected: {selectedJob.title}</p>
+                <p className="text-xs text-indigo-600 mt-0.5">{selectedJob.company_detail?.name || 'Company'}</p>
+                {selectedJob.required_skills?.length > 0 && (
+                  <p className="text-xs text-indigo-500 mt-1">Skills: {selectedJob.required_skills.join(', ')}</p>
+                )}
               </div>
             )}
 
@@ -236,9 +265,9 @@ export default function MockInterview() {
             </div>
 
             <button onClick={startInterview} disabled={!selectedJob || loading}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-colors">
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-colors">
               {loading ? (
-                <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" /> Loading questions...</>
+                <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" /> Generating questions...</>
               ) : (
                 <><Play className="h-5 w-5" /> Start Mock Interview</>
               )}
@@ -249,7 +278,7 @@ export default function MockInterview() {
     )
   }
 
-  // INTERVIEW PHASE
+  // ── INTERVIEW PHASE ──
   if (phase === 'interview') {
     const q = questions[current]
     return (
@@ -270,12 +299,12 @@ export default function MockInterview() {
           </button>
         </div>
 
-        {/* Progress */}
+        {/* Progress bar */}
         <div className="flex items-center gap-2">
           {questions.map((_, i) => (
-            <div key={i} className={`h-2 flex-1 rounded-full ${i < current ? 'bg-indigo-600' : i === current ? 'bg-indigo-300' : 'bg-gray-200'}`} />
+            <div key={i} className={`h-2 flex-1 rounded-full transition-all ${i < current ? 'bg-indigo-600' : i === current ? 'bg-indigo-300' : 'bg-gray-200'}`} />
           ))}
-          <span className="text-xs text-gray-500 ml-2">{current + 1}/{questions.length}</span>
+          <span className="text-xs text-gray-500 ml-2 shrink-0">{current + 1}/{questions.length}</span>
         </div>
 
         {/* Question card */}
@@ -284,7 +313,12 @@ export default function MockInterview() {
             <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">
               Question {current + 1}
             </span>
-            <Timer running={timerRunning} onEnd={handleTimeUp} duration={DURATION} key={`${current}-${DURATION}`} />
+            <Timer
+              running={timerRunning}
+              onEnd={handleTimeUp}
+              duration={DURATION}
+              resetKey={timerResetKey.current}
+            />
           </div>
           <p className="text-gray-900 font-medium text-lg leading-relaxed">{q}</p>
           {timeUp && (
@@ -299,7 +333,9 @@ export default function MockInterview() {
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-gray-700">Your Answer</p>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400">{answer.trim().split(/\s+/).filter(Boolean).length} words</span>
+              <span className="text-xs text-gray-400">
+                {answer.trim().split(/\s+/).filter(Boolean).length} words
+              </span>
               {recognitionRef.current && (
                 <button onClick={toggleListening}
                   className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
@@ -330,25 +366,29 @@ export default function MockInterview() {
     )
   }
 
-  // RESULT PHASE
+  // ── RESULT PHASE ──
   const attempted = answers.filter(a => a.answer.trim().split(/\s+/).filter(Boolean).length >= 30).length
-  const finalScore = Math.round((attempted / answers.length) * 100)
+  const finalScore = answers.length > 0 ? Math.round((attempted / answers.length) * 100) : 0
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
+      {/* Score card */}
       <div className="card bg-gradient-to-br from-indigo-600 to-purple-600 text-white text-center">
         <div className="text-5xl font-black mb-2">{finalScore}%</div>
         <p className="text-indigo-200 text-sm">Interview Score</p>
         <p className="text-white font-semibold mt-1">
-          {finalScore >= 80 ? '🎉 Excellent! You are well prepared.' : finalScore >= 50 ? '👍 Good effort! Keep practicing.' : '📚 Needs more practice. Review your answers.'}
+          {finalScore >= 80 ? '🎉 Excellent! You are well prepared.'
+            : finalScore >= 50 ? '👍 Good effort! Keep practicing.'
+            : '📚 Needs more practice. Review your answers.'}
         </p>
         <div className="flex justify-center gap-6 mt-4 text-sm">
           <div><span className="text-indigo-200">Attempted</span><p className="font-bold text-lg">{attempted}/{answers.length}</p></div>
-          <div><span className="text-indigo-200">Job</span><p className="font-bold text-lg truncate max-w-32">{selectedJob?.title}</p></div>
+          <div><span className="text-indigo-200">Job</span><p className="font-bold text-lg truncate max-w-[8rem]">{selectedJob?.title}</p></div>
           <div><span className="text-indigo-200">Difficulty</span><p className="font-bold text-lg">{difficulty}</p></div>
         </div>
       </div>
 
+      {/* Answers review */}
       <div className="space-y-4">
         <h2 className="font-semibold text-gray-900">Your Answers Review</h2>
         {answers.map((a, i) => {

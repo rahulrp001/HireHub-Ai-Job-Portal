@@ -4,9 +4,10 @@ import { useAuth } from '../../context/AuthContext'
 import { authService, jobService, applicationService } from '../../services'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { 
-  Briefcase, Users, CheckCircle2, Plus, ArrowRight, Eye, Sparkles, 
-  Search, Star, FileText, Calendar, Building2, SlidersHorizontal, UserCheck, XCircle
+  Briefcase, Users, Plus, ArrowRight, Sparkles, 
+  FileText, Calendar, Building2
 } from 'lucide-react'
+import ScheduleInterviewModal from '../../components/recruiter/ScheduleInterviewModal'
 
 export default function RecruiterDashboard() {
   const { user } = useAuth()
@@ -14,6 +15,8 @@ export default function RecruiterDashboard() {
   const [applications, setApplications] = useState([])
   const [updatingId, setUpdatingId] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [seeding, setSeeding] = useState(false)
+  const [selectedAppModal, setSelectedAppModal] = useState(null)
   const pollRef = useRef(null)
 
   const fetchData = async (showLoader = false) => {
@@ -24,7 +27,7 @@ export default function RecruiterDashboard() {
         applicationService.getRecruiterApplications(),
       ])
       setStats(statsRes.data)
-      setApplications(appsRes.data.applications || [])
+      setApplications(appsRes.data?.applications || [])
     } catch {}
     finally { if (showLoader) setLoading(false) }
   }
@@ -35,17 +38,35 @@ export default function RecruiterDashboard() {
     return () => clearInterval(pollRef.current)
   }, [])
 
+  const handleSeedJobs = async () => {
+    if (!confirm('1,000 realistic active jobs add karne hain is employer account se?')) return
+    setSeeding(true)
+    try {
+      await jobService.seedJobs(1000)
+      await fetchData(false)
+      alert('1,000 jobs successfully add ho gaye!')
+    } catch (err) {
+      alert('Kuch jobs add nahi ho sake: ' + (err.response?.data?.detail || err.message))
+    }
+    setSeeding(false)
+  }
+
   const handleShortlist = async (appId, candidateName) => {
+    const app = applications.find(a => a.id === appId)
+    if (app) setSelectedAppModal({ ...app, status: 'SHORTLISTED' })
+  }
+
+  const handleModalUpdate = async (appId, payload) => {
     setUpdatingId(appId)
     try {
-      await applicationService.updateStatus(appId, { status: 'SHORTLISTED' })
-      setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: 'SHORTLISTED' } : a))
-      setStats(prev => prev ? {
-        ...prev,
-        shortlisted: (prev.shortlisted || 0) + 1,
-      } : prev)
-    } catch {}
-    finally { setUpdatingId(null) }
+      const { data } = await applicationService.updateStatus(appId, payload)
+      setApplications(prev => prev.map(a => a.id === appId ? { ...a, ...data.application } : a))
+      fetchData(false)
+    } catch (err) {
+      alert('Could not update status: ' + (err.response?.data?.message || err.message))
+    } finally {
+      setUpdatingId(null)
+    }
   }
 
   const activeJobs = stats?.active_jobs ?? 0
@@ -53,9 +74,20 @@ export default function RecruiterDashboard() {
   const interviewCount = stats?.interviews ?? 0
 
   const chartData = (stats?.chart_data || []).map(j => ({
-    name: j.title.slice(0, 14),
-    applicants: j.app_count || 0,
+    name: j.title?.slice(0, 14) || 'Job',
+    applicants: j.app_count || j.applications_count || 0,
   }))
+
+  // Fallback: build chart from applications if chart_data not available
+  const finalChartData = chartData.length > 0 ? chartData : (() => {
+    const jobMap = {}
+    applications.forEach(a => {
+      const title = a.job_detail?.title || `Job #${a.job}`
+      const key = title.slice(0, 14)
+      jobMap[key] = (jobMap[key] || 0) + 1
+    })
+    return Object.entries(jobMap).map(([name, applicants]) => ({ name, applicants }))
+  })()
 
   const displayApplications = applications
 
@@ -99,6 +131,13 @@ export default function RecruiterDashboard() {
             >
               <Plus className="h-4 w-4" /> Post New Job
             </Link>
+            <button
+              onClick={handleSeedJobs}
+              disabled={seeding}
+              className="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold px-4 py-3 rounded-full text-sm transition-all flex items-center gap-2"
+            >
+              {seeding ? 'Adding 1,000 Jobs...' : '⚡ Seed 1,000 Jobs'}
+            </button>
           </div>
         </div>
       </div>
@@ -190,7 +229,7 @@ export default function RecruiterDashboard() {
                     {/* Skills */}
                     <td className="py-4 px-4">
                       <div className="flex flex-wrap gap-1">
-                        {(app.skills || []).slice(0, 3).map(s => (
+                        {(app.job_detail?.required_skills || []).slice(0, 3).map(s => (
                           <span key={s} className="bg-slate-100 text-slate-600 text-[10px] font-semibold px-2 py-0.5 rounded">
                             {s}
                           </span>
@@ -219,19 +258,15 @@ export default function RecruiterDashboard() {
                         >
                           <FileText className="h-4 w-4" />
                         </button>
-                        {app.status !== 'SHORTLISTED' && app.status !== 'INTERVIEW' && app.status !== 'SELECTED' ? (
-                          <button 
-                            onClick={() => handleShortlist(app.id, app.candidate_detail?.full_name)}
-                            disabled={updatingId === app.id}
-                            className="px-3 py-1 rounded-full bg-[#275df5] text-white text-xs font-bold hover:bg-[#1a4bd8] transition-colors disabled:opacity-50"
-                          >
-                            {updatingId === app.id ? '...' : 'Shortlist'}
-                          </button>
-                        ) : (
-                          <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-bold">
-                            {app.status.replace('_', ' ')}
-                          </span>
-                        )}
+                        <button 
+                          onClick={() => setSelectedAppModal(app)}
+                          disabled={updatingId === app.id}
+                          className="px-3 py-1 rounded-full bg-[#275df5] text-white text-xs font-bold hover:bg-[#1a4bd8] transition-colors disabled:opacity-50 flex items-center gap-1 shadow-xs"
+                          title="Schedule Interview, Select, or Shortlist with Email Notification"
+                        >
+                          <Calendar className="h-3 w-3" />
+                          <span>{app.status === 'APPLIED' || app.status === 'UNDER_REVIEW' ? 'Action / Email' : app.status.replace('_', ' ')}</span>
+                        </button>
                       </div>
                     </td>
 
@@ -253,7 +288,7 @@ export default function RecruiterDashboard() {
             <span className="text-xs text-slate-400 font-normal">Real-time stats</span>
           </h2>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={chartData}>
+            <BarChart data={finalChartData}>
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis />
               <Tooltip />
@@ -293,6 +328,16 @@ export default function RecruiterDashboard() {
         </div>
 
       </div>
+
+      {/* Schedule Interview / Action Modal */}
+      {selectedAppModal && (
+        <ScheduleInterviewModal
+          isOpen={!!selectedAppModal}
+          onClose={() => setSelectedAppModal(null)}
+          application={selectedAppModal}
+          onUpdateSuccess={handleModalUpdate}
+        />
+      )}
 
     </div>
   )

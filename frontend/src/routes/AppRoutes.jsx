@@ -30,6 +30,14 @@ import CandidateMessages from '../pages/candidate/Messages'
 import CandidateNotifications from '../pages/candidate/Notifications'
 import CandidateSettings from '../pages/candidate/Settings'
 
+// Admin pages
+import AdminLayout from '../layouts/AdminLayout'
+import AdminDashboard from '../pages/admin/Dashboard'
+import AdminUsers from '../pages/admin/Users'
+import AdminJobs from '../pages/admin/Jobs'
+import AdminApplications from '../pages/admin/Applications'
+import AdminCompanies from '../pages/admin/Companies'
+
 // Recruiter pages
 import RecruiterDashboard from '../pages/recruiter/Dashboard'
 import Company from '../pages/recruiter/Company'
@@ -96,6 +104,20 @@ export default function AppRoutes() {
             <Route path="messages" element={<RecruiterMessages />} />
             <Route path="notifications" element={<RecruiterNotifications />} />
             <Route path="settings" element={<RecruiterSettings />} />
+          </Route>
+
+          {/* Admin */}
+          <Route path="/admin" element={
+            <ProtectedRoute roles={['ADMIN']}>
+              <AdminLayout />
+            </ProtectedRoute>
+          }>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="jobs" element={<AdminJobs />} />
+            <Route path="applications" element={<AdminApplications />} />
+            <Route path="companies" element={<AdminCompanies />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

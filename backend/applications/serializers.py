@@ -11,9 +11,13 @@ class JobApplicationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = JobApplication
-        fields = ['id', 'candidate', 'candidate_detail', 'job', 'job_detail', 'resume',
-                  'cover_letter', 'status', 'ai_match_score', 'recruiter_score',
-                  'skills', 'applied_at', 'updated_at']
+        fields = [
+            'id', 'candidate', 'candidate_detail', 'job', 'job_detail', 'resume',
+            'cover_letter', 'status', 'ai_match_score', 'recruiter_score',
+            'interview_date', 'interview_mode', 'interview_location',
+            'interview_round', 'interview_notes',
+            'skills', 'applied_at', 'updated_at'
+        ]
         read_only_fields = ['id', 'candidate', 'status', 'ai_match_score', 'applied_at', 'updated_at']
 
     def get_skills(self, obj):
@@ -25,6 +29,12 @@ class JobApplicationSerializer(serializers.ModelSerializer):
 
 
 class ApplicationStatusSerializer(serializers.ModelSerializer):
+    send_email = serializers.BooleanField(write_only=True, required=False, default=True)
+
     class Meta:
         model = JobApplication
-        fields = ['status', 'recruiter_score']
+        fields = [
+            'status', 'recruiter_score',
+            'interview_date', 'interview_mode', 'interview_location',
+            'interview_round', 'interview_notes', 'send_email'
+        ]

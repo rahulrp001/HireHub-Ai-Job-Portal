@@ -1,10 +1,11 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { 
   Search, MapPin, Briefcase, Brain, FileText, BarChart3, 
   ArrowRight, Star, ChevronRight, Sparkles, Building2, TrendingUp,
-  ShieldCheck, Zap, Laptop, LineChart, Cpu, DollarSign
+  ShieldCheck, Zap, Laptop, LineChart, Cpu, DollarSign, Compass
 } from 'lucide-react'
+import LocationPickerModal from '../../components/common/LocationPickerModal'
 
 const topCompanies = [
   { name: 'Google', logo: 'G', rating: '4.4', reviews: '24.2k+', jobs: '140+ Jobs', bg: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
@@ -31,9 +32,20 @@ const aiFeatures = [
 
 export default function Home() {
   const navigate = useNavigate()
+  const locationState = useLocation()
   const [searchQuery, setSearchQuery] = useState('')
   const [experience, setExperience] = useState('')
   const [location, setLocation] = useState('')
+  const [mapModalOpen, setMapModalOpen] = useState(false)
+
+  useEffect(() => {
+    if (locationState.hash === '#companies') {
+      const el = document.getElementById('companies')
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth' }), 100)
+      }
+    }
+  }, [locationState.hash])
 
   const handleSearchSubmit = (e) => {
     e.preventDefault()
@@ -109,15 +121,23 @@ export default function Home() {
             <div className="hidden md:block w-px h-8 bg-slate-200"></div>
 
             {/* Field 3: Location */}
-            <div className="flex items-center gap-2 px-3 py-2.5 w-full md:flex-1">
+            <div className="flex items-center gap-2 px-3 py-2.5 w-full md:flex-1 relative">
               <MapPin className="h-4 w-4 text-slate-400 shrink-0" />
               <input
                 type="text"
                 placeholder="Enter location"
-                className="w-full text-slate-900 placeholder:text-slate-400 text-sm font-medium focus:outline-none bg-transparent"
+                className="w-full text-slate-900 placeholder:text-slate-400 text-sm font-medium focus:outline-none bg-transparent pr-14"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
               />
+              <button
+                type="button"
+                onClick={() => setMapModalOpen(true)}
+                className="bg-blue-50 hover:bg-blue-100 text-[#275df5] border border-blue-200 px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors shrink-0"
+                title="Search or pick location on interactive map"
+              >
+                <Compass className="h-3 w-3" /> Map
+              </button>
             </div>
 
             {/* Search Button */}
@@ -150,7 +170,7 @@ export default function Home() {
       </section>
 
       {/* 2. Top Hiring Companies Widget */}
-      <section className="py-12 px-4 max-w-7xl mx-auto">
+      <section id="companies" className="py-12 px-4 max-w-7xl mx-auto scroll-mt-20">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">Top companies hiring now</h2>
@@ -267,6 +287,14 @@ export default function Home() {
           </Link>
         </div>
       </section>
+
+      {/* Map Location Picker Modal */}
+      <LocationPickerModal
+        isOpen={mapModalOpen}
+        onClose={() => setMapModalOpen(false)}
+        initialLocation={location}
+        onSelectLocation={(loc) => setLocation(loc)}
+      />
 
     </div>
   )

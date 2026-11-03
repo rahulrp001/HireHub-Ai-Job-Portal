@@ -15,7 +15,7 @@ class AIChatView(APIView):
         message = request.data.get('message', '').strip()
         if not message:
             return Response({'success': False, 'message': 'Message is required'}, status=400)
-        response = get_ai_coach_response(message)
+        response = get_ai_coach_response(message, user=request.user)
         return Response({'success': True, 'response': response})
 
 

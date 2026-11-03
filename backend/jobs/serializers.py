@@ -20,11 +20,18 @@ class JobSerializer(serializers.ModelSerializer):
 
     def get_is_saved(self, obj):
         request = self.context.get('request')
-        if request and request.user.is_authenticated:
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            # Only CANDIDATE can save jobs. Recruiter / Admin checks skipped to avoid N queries
+            if getattr(request.user, 'role', '') != 'CANDIDATE':
+                return False
+            if hasattr(obj, 'is_saved_annotated'):
+                return bool(obj.is_saved_annotated)
             return SavedJob.objects.filter(candidate=request.user, job=obj).exists()
         return False
 
     def get_applications_count(self, obj):
+        if hasattr(obj, 'app_count'):
+            return obj.app_count
         return obj.applications.count()
 
 

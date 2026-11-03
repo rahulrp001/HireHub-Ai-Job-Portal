@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { jobService } from '../../services'
 import { Plus, X, Briefcase } from 'lucide-react'
+import LocationInputWithMap from '../../components/common/LocationInputWithMap'
 
 const SKILL_SUGGESTIONS = [
   'Python', 'JavaScript', 'React', 'Node.js', 'Django', 'FastAPI', 'TypeScript',
@@ -146,8 +147,13 @@ export default function CreateJob() {
           <h2 className="font-semibold text-gray-900 mb-4">Job Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-              <input className="input-field" placeholder="e.g. Bangalore, India" value={form.location} onChange={e => set('location', e.target.value)} />
+              <LocationInputWithMap
+                label="Location"
+                placeholder="e.g. Bangalore, India"
+                value={form.location}
+                onChange={(loc) => set('location', loc)}
+                buttonLabel="Pick on Map"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Job Type</label>

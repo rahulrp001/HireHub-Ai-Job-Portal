@@ -18,6 +18,14 @@ const navItems = [
   { to: '/recruiter/settings', icon: Settings, label: 'Settings' },
 ]
 
+const mobileNav = [
+  { to: '/recruiter/dashboard', icon: LayoutDashboard, label: 'Home' },
+  { to: '/recruiter/jobs', icon: Briefcase, label: 'Jobs' },
+  { to: '/recruiter/jobs/create', icon: Plus, label: 'Post' },
+  { to: '/recruiter/applications', icon: Users, label: 'Apps' },
+  { to: '/recruiter/messages', icon: MessageSquare, label: 'Chat' },
+]
+
 export default function RecruiterLayout() {
   const { user } = useAuth()
   const location = useLocation()
@@ -35,7 +43,7 @@ export default function RecruiterLayout() {
             {navItems.map(({ to, icon: Icon, label }) => (
               <Link key={to} to={to}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  location.pathname === to
+                  location.pathname === to || location.pathname.startsWith(to + '/')
                     ? 'bg-blue-50 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}>
@@ -45,10 +53,24 @@ export default function RecruiterLayout() {
             ))}
           </nav>
         </aside>
-        <main className="flex-1 p-6 bg-gray-50">
+        <main className="flex-1 p-4 lg:p-6 bg-gray-50 pb-20 lg:pb-6">
           <Outlet />
         </main>
       </div>
+      {/* Mobile bottom nav */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex z-50">
+        {mobileNav.map(({ to, icon: Icon, label }) => (
+          <Link key={to} to={to}
+            className={`flex-1 flex flex-col items-center py-2 text-xs font-medium transition-colors ${
+              location.pathname === to || location.pathname.startsWith(to + '/')
+                ? 'text-blue-600'
+                : 'text-gray-400'
+            }`}>
+            <Icon className="h-5 w-5 mb-0.5" />
+            {label}
+          </Link>
+        ))}
+      </nav>
     </div>
   )
 }

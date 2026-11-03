@@ -25,7 +25,7 @@ class ConversationListView(APIView):
                 conversations.append({
                     'user': {'id': other.id, 'name': other.full_name, 'email': other.email},
                     'last_message': msg.message,
-                    'last_message_time': msg.created_at,
+                    'last_message_time': msg.created_at.isoformat(),
                     'unread_count': Message.objects.filter(sender=other, receiver=request.user, is_read=False).count()
                 })
         return Response({'success': True, 'conversations': conversations})
@@ -35,7 +35,10 @@ class MessageView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, user_id):
-        other = User.objects.get(pk=user_id)
+        try:
+            other = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response({'success': False, 'message': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
         messages = Message.objects.filter(
             Q(sender=request.user, receiver=other) | Q(sender=other, receiver=request.user)
         ).select_related('sender', 'receiver')
@@ -52,6 +55,6 @@ class MessageView(APIView):
             sender=request.user,
             receiver=receiver,
             message=request.data.get('message', ''),
-            application_id=request.data.get('application')
+            application_id=request.data.get('application') or None
         )
         return Response({'success': True, 'message': MessageSerializer(msg).data}, status=status.HTTP_201_CREATED)

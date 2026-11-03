@@ -3,9 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { jobService } from '../../services'
 import { 
   MapPin, Briefcase, Clock, Search, Filter, BookmarkPlus, BookmarkCheck, 
-  IndianRupee, Star, Sparkles, Building2, SlidersHorizontal, ArrowUpDown, ChevronRight
+  IndianRupee, Star, Sparkles, Building2, SlidersHorizontal, ArrowUpDown, ChevronRight, Compass
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import LocationPickerModal from '../../components/common/LocationPickerModal'
 
 const JOB_TYPES = ['FULL_TIME', 'PART_TIME', 'INTERNSHIP', 'CONTRACT', 'FREELANCE']
 const WORK_MODES = ['REMOTE', 'HYBRID', 'ON_SITE']
@@ -26,6 +27,7 @@ export default function Jobs() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [savedJobs, setSavedJobs] = useState(new Set())
+  const [mapModalOpen, setMapModalOpen] = useState(false)
 
   const fetchJobs = async () => {
     setLoading(true)
@@ -41,8 +43,20 @@ export default function Jobs() {
     }
   }
 
+  useEffect(() => {
+    setSearch(searchParams.get('q') || '')
+    setFilters({
+      job_type: searchParams.get('job_type') || '',
+      work_mode: searchParams.get('work_mode') || '',
+      location: searchParams.get('location') || ''
+    })
+    setPage(1)
+  }, [searchParams])
+
   useEffect(() => { 
-    fetchJobs() 
+    fetchJobs()
+    const interval = setInterval(fetchJobs, 30000)
+    return () => clearInterval(interval)
   }, [page, filters])
 
   const handleSearch = (e) => {
@@ -89,15 +103,23 @@ export default function Jobs() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="w-full md:w-48 relative">
+            <div className="w-full md:w-56 relative flex items-center">
               <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input
                 type="text"
-                className="input-field pl-10 bg-slate-50 border-slate-200 text-sm font-medium"
+                className="input-field pl-10 pr-16 bg-slate-50 border-slate-200 text-sm font-medium"
                 placeholder="Location"
                 value={filters.location}
                 onChange={(e) => setFilters(f => ({ ...f, location: e.target.value }))}
               />
+              <button
+                type="button"
+                onClick={() => setMapModalOpen(true)}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-blue-50 hover:bg-blue-100 text-[#275df5] border border-blue-200 px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
+                title="Search or pick location on interactive map"
+              >
+                <Compass className="h-3 w-3" /> Map
+              </button>
             </div>
             <button
               type="submit"
@@ -186,6 +208,39 @@ export default function Jobs() {
                 </div>
               </div>
 
+              {/* Location Filter */}
+              <div className="mb-5 pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Location</h4>
+                  <button
+                    type="button"
+                    onClick={() => setMapModalOpen(true)}
+                    className="text-[11px] font-bold text-[#275df5] hover:underline flex items-center gap-0.5"
+                  >
+                    <Compass className="h-3 w-3" /> Map View
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {['Bangalore', 'Mumbai', 'Delhi', 'Noida', 'Gurugram', 'Hyderabad', 'Pune', 'Chennai', 'Kolkata', 'Ahmedabad', 'Jaipur', 'Lucknow', 'Chandigarh', 'Indore', 'Kochi', 'Remote'].map(city => (
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={() => {
+                        setFilters(f => ({ ...f, location: f.location === city ? '' : city }))
+                        setPage(1)
+                      }}
+                      className={`text-xs px-2.5 py-1 rounded-lg font-medium transition-colors ${
+                        filters.location === city
+                          ? 'bg-[#275df5] text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
+                      }`}
+                    >
+                      {city}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* AI Match Feature Teaser */}
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-3.5 text-xs text-slate-600">
                 <p className="font-bold text-slate-900 flex items-center gap-1.5 text-xs mb-1">
@@ -204,6 +259,7 @@ export default function Jobs() {
             <div className="flex items-center justify-between mb-4 bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-sm">
               <span className="text-xs font-bold text-slate-700">
                 {loading ? 'Searching opportunities...' : `Showing ${jobs.length} jobs available`}
+              {!loading && <span className="text-[10px] text-slate-400 ml-2">• Live</span>}
               </span>
               <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
                 <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" /> Sort by: <span className="font-bold text-slate-800 cursor-pointer hover:text-[#275df5]">Relevance</span>
@@ -366,6 +422,17 @@ export default function Jobs() {
         </div>
 
       </div>
+
+      {/* Map Location Picker Modal */}
+      <LocationPickerModal
+        isOpen={mapModalOpen}
+        onClose={() => setMapModalOpen(false)}
+        initialLocation={filters.location}
+        onSelectLocation={(loc) => {
+          setFilters(f => ({ ...f, location: loc }))
+          setPage(1)
+        }}
+      />
     </div>
   )
 }

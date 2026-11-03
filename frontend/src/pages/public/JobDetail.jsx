@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { jobService, applicationService, resumeService } from '../../services'
 import { useAuth } from '../../context/AuthContext'
+import JobLocationMap from '../../components/common/JobLocationMap'
 import { 
   MapPin, Briefcase, Clock, DollarSign, GraduationCap, Calendar, 
   BookmarkPlus, BookmarkCheck, ArrowLeft, CheckCircle2, Star, Sparkles, 
-  Building2, Send, FileText, Share2
+  Building2, Send, FileText, Share2, Compass
 } from 'lucide-react'
 
 export default function JobDetail() {
@@ -23,12 +24,16 @@ export default function JobDetail() {
   const [showApplyForm, setShowApplyForm] = useState(false)
 
   useEffect(() => {
-    jobService.getJob(id)
-      .then(({ data }) => {
-        setJob(data.job)
-        setSaved(data.job.is_saved)
-      }).catch(() => navigate('/jobs'))
-      .finally(() => setLoading(false))
+    const loadJob = () => {
+      jobService.getJob(id)
+        .then(({ data }) => {
+          setJob(data.job)
+          setSaved(data.job.is_saved)
+        }).catch(() => navigate('/jobs'))
+        .finally(() => setLoading(false))
+    }
+    loadJob()
+    const interval = setInterval(loadJob, 30000)
 
     if (user?.role === 'CANDIDATE') {
       resumeService.getResumes().then(({ data }) => setResumes(data.resumes || [])).catch(() => {})
@@ -37,6 +42,7 @@ export default function JobDetail() {
         setApplied(apps.some(a => a.job === parseInt(id)))
       }).catch(() => {})
     }
+    return () => clearInterval(interval)
   }, [id])
 
   const handleSave = async () => {
@@ -268,6 +274,14 @@ export default function JobDetail() {
               </div>
             )}
 
+            {/* Workplace Location & Interactive Map */}
+            <div id="job-location-section">
+              <JobLocationMap
+                location={job.location}
+                companyName={job.company_detail?.name || job.title}
+              />
+            </div>
+
           </div>
 
           {/* Right Sidebar Details */}
@@ -282,16 +296,26 @@ export default function JobDetail() {
               {[
                 { icon: Briefcase, label: 'Employment Type', value: job.job_type?.replace('_', ' ') },
                 { icon: Clock, label: 'Work Mode', value: job.work_mode?.replace('_', ' ') },
-                { icon: MapPin, label: 'Location', value: job.location || 'Remote' },
+                { icon: MapPin, label: 'Location', value: job.location || 'Remote', isMapLink: true },
                 { icon: GraduationCap, label: 'Experience Required', value: `${job.experience_min || 0} - ${job.experience_max || 5} Yrs` },
                 { icon: GraduationCap, label: 'Education', value: job.education_required || 'Graduate / Postgraduate' },
                 { icon: Calendar, label: 'Deadline', value: job.application_deadline ? new Date(job.application_deadline).toLocaleDateString('en-IN') : 'Open' }
-              ].map(({ icon: Icon, label, value }) => (
+              ].map(({ icon: Icon, label, value, isMapLink }) => (
                 <div key={label} className="flex items-start gap-3">
                   <Icon className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">{label}</p>
-                    <p className="text-xs font-bold text-slate-800">{value}</p>
+                    {isMapLink ? (
+                      <a 
+                        href="#job-location-section" 
+                        className="text-xs font-bold text-[#275df5] hover:underline flex items-center gap-1"
+                        title="View job location on map"
+                      >
+                        {value} <span className="text-[10px] bg-blue-50 text-[#275df5] px-1.5 py-0.5 rounded font-semibold flex items-center gap-0.5">Map</span>
+                      </a>
+                    ) : (
+                      <p className="text-xs font-bold text-slate-800">{value}</p>
+                    )}
                   </div>
                 </div>
               ))}
